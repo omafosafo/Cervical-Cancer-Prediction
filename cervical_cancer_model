@@ -1,0 +1,106 @@
+#Import Dependencies
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import sklearn.svm
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.svm import SVC
+from sklearn import metrics
+
+
+#Import Data
+data = pd.read_csv('risk_factors_cervical_cancer.csv')
+
+# Rename columns names to remove spaces
+data.columns = data.columns.str.replace(' ','_').str.lower()
+print(data.columns)
+data.info
+
+# Display the first few rows of the dataset
+print("\nFirst 5 Rows:")
+data.tail
+
+#Check the values in the dataframe
+data.values
+
+# Count missing values, treating empty strings as missing
+missing_counts = data.replace('', pd.NA).isnull().sum()
+# Drop NA values
+numeric_data = data.select_dtypes(include=['number'])
+
+# Display the numeric columns
+print(numeric_data)
+
+print("\nMissing Values Count (including empty strings):")
+print(missing_counts)
+
+# Count empty strings in each column
+empty_string_counts = data.isin(['']).sum()
+
+print("\nEmpty Strings Count per Column:")
+print(empty_string_counts[empty_string_counts > 0])  # Show only columns with empty strings
+
+data = data.replace('?',' ')
+data = data.dropna()
+data.isnull().sum()
+data
+#Check for duplicates
+print("\nDuplicate Rows:")
+print(data.duplicated().sum())
+# Find and print all duplicated rows
+print(data[data.duplicated(keep=False)])
+
+
+#Filter data for only continuous variable
+# Columns to drop
+#columns_to_drop = ['stds:_number_of_diagnosis', 'dx:cancer','dx:cin','dx:hpv','dx','hinselmann','schiller','citology']
+
+#data_cont = data.drop(columns=columns_to_drop, errors='ignore')
+
+#print("\nDataFrame after dropping columns:")
+#print(data_cont)
+#data_cont.info()
+
+#Data Processing
+
+#Select continuous features and target variable
+
+continuous_features = ['age', 'stds:_number_of_diagnosis', 'dx:cancer',
+                       'dx:cin', 'dx:hpv', 'dx',
+                       'hinselmann', 'schiller','citology']
+target_variable = "biopsy"
+
+data_x = data[continuous_features]
+
+data_y = data[target_variable]
+
+# Impute missing values with median
+imputer = SimpleImputer(strategy="median")
+X_imputed = imputer.fit_transform(data_x)
+
+
+# Split data (70% train, 30% test)
+X_train, X_test, y_train, y_test = train_test_split(X_imputed, data_y, test_size=0.3, random_state=42, shuffle=True)
+
+# Standardize data (zero mean, unit variance)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Hyperparameter tuning: Try different kernels
+
+param_grid = [{'kernel': ['linear', 'rbf', 'poly', 'sigmoid']}]
+gs = GridSearchCV(SVC(probability=True, gamma='scale'), param_grid, cv=5, scoring='roc_auc')
+gs.fit(X_train, y_train)
+gs.cv_results_
+
+# best kernel
+gs.best_params_
+
+# evaluate on test data with rbf
+y_pred = gs.predict_proba(X_test)
+fpr, tpr, thresholds = metrics.roc_curve(y_test, y_pred[:,1], pos_label=1)
+print(metrics.auc(fpr, tpr))
+
