@@ -1,4 +1,4 @@
-# ML
+# Cervical Cancer Prediction model
 In this project, I trained a support vector machine (SVM) classifiers using the Cervical
 Cancer dataset in the UCI Machine Learning Repository.
 
